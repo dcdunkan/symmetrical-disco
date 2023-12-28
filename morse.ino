@@ -7,8 +7,6 @@
 #define UNIT_DELAY 200  // time in ms that is considered as one unit.
 #define MAX_INPUT_BUFFER_LENGTH 5
 const char INVALID_CHARACTER = '?';
-
-
 const int LCD_LINE_LENGTH = 16;
 
 const int BUZZER_PIN = 7;
@@ -74,6 +72,13 @@ char getCharacter(char morse[]) {
   return INVALID_CHARACTER;
 }
 
+char* getMorseSequence(char c) {
+  if (c >= 97 && c <= 122) c -= 32;
+  for (int i = 0; i < CHARSET_LENGTH; i++)
+    if (MORSE_CODES[i][1][0] == c) return MORSE_CODES[i][0];
+  return {};
+}
+
 // Fill an character array with the given character.
 void fillChar(char* destination, char character, int maxLength, int from = 0) {
   for (int i = from; i < maxLength; i++) *(destination + i) = character;
@@ -134,18 +139,35 @@ void setup() {
   digitalWrite(BUTTON_PIN, HIGH);
   display.clear();
 
-  // Mini splash screen
+  splashScreen(); // GAYEST show off ever
+
+  lastEvent = millis();
+}
+
+void splashScreen() {
+  char randomGen1[LCD_LINE_LENGTH];
+  char randomGen2[LCD_LINE_LENGTH];
+
+  randomSeed(analogRead(1));
+  for (int i = 0; i < LCD_LINE_LENGTH; i++) {
+    randomGen1[i] = random(0, 10) > 5 ? '.' : '-';
+    randomGen2[i] = random(0, 10) > 5 ? '.' : '-';
+  }
+
+  printCharByChar(randomGen1, 25, 0, 0);
+  printCharByChar(randomGen2, 25, 1, 0, true);
+
   printCharByChar("Morse Code", 50, 0, 3);
   printCharByChar("Translator", 50, 1, 3, true);
   delay(1500);
   display.clear();
-
-  printCharByChar("Group 8B", 50, 0, 4);
+  display.setCursor(2, 0);
+  display.print("presented by");
+  printCharByChar("Group 8B", 50, 1, 4);
+  delay(1000);
   printCharByChar("58  60  61  62", 50, 1, 1, true);
   delay(1000);
   display.clear();
-
-  lastEvent = millis();
 }
 
 void printEnvelopeChar() {
@@ -156,42 +178,73 @@ void printEnvelopeChar() {
 void loop() {
   int buttonState = digitalRead(BUTTON_PIN);
 
-  // if (Serial.available()) {
-  //   String input = Serial.readString();
-  //   input.trim();
-  //   if (input[0] != 0) {
-  //     display.clear();
-  //     display.backlight();
-  //     display.home();
-  //     printEnvelopeChar();
-  //     display.print(" New message!");
-  //     delay(3000);
-  //     display.clear();
+  if (Serial.available()) {
+    String input = Serial.readString();
+    input.trim();
+    if (input[0] != 0) {
+      digitalWrite(BUZZER_PIN, LOW);
+      display.clear();
+      display.backlight();
+      display.home();
+      printEnvelopeChar();
+      display.print(" New message!");
+      digitalWrite(BUZZER_PIN, HIGH);
+      delay(300);
+      digitalWrite(BUZZER_PIN, LOW);
+      delay(300);
+      digitalWrite(BUZZER_PIN, HIGH);
+      delay(300);
+      digitalWrite(BUZZER_PIN, LOW);
+      delay(600);
+      display.clear();
 
-  //     char filtered[input.length()];
-  //     for (int i = 0; i < input.length(); i++) {
-  //       char character = input.charAt(i);
-  //       filtered[i] = (i >= 65 && i <= 90) || (i >= 48 && i <= 57)
-  //         ? character
-  //         : i >= 97 && i <= 122
-  //         ? character - 22
-  //         : INVALID_CHARACTER;
-  //     }
+      char filtered[input.length() + 12];
+      const int offset = 6;
+      fillChar(filtered, ' ', offset, 0);
+      for (int i = 0; i < input.length(); i++) {
+        char c = input.charAt(i);
+        filtered[i + offset] = c >= 32 && c <= 125 ? c : INVALID_CHARACTER;
+      }
+      fillChar(filtered, ' ', input.length() + 12, input.length() + offset);
 
-  //     display.home();
-  //     printEnvelopeChar();
-  //     display.setCursor(10, 0);
+      display.home();
+      printEnvelopeChar();
+      display.setCursor(9, 1);
+      display.print("^");
 
-  //     char buffer[11];
-  //     for (int i = 0; i < strlen(filtered); i++) {
-  //       char c = filtered[i];
+      char previewBuffer[13];
 
-  //     }
+      for (int i = 0; i < input.length(); i++) {
+        for (int j = 0; j < 13; j++) {
+          previewBuffer[j] = filtered[j + i];
+        }
+        display.setCursor(3, 0);
+        display.print(previewBuffer);
 
-  //     display.clear();
-  //     lastEvent = millis();
-  //   }
-  // }
+        String morse = String(getMorseSequence(filtered[i + offset]));
+        display.setCursor(0, 1);
+        display.print(morse);
+
+        morse.trim();
+
+        for (int j = 0; j < morse.length(); j++) {
+          digitalWrite(BUZZER_PIN, HIGH);
+          delay((morse.charAt(j) == '.' ? 1 : 3) * UNIT_DELAY);
+          digitalWrite(BUZZER_PIN, LOW);
+          delay(UNIT_DELAY);
+        }
+
+        delay(3 * UNIT_DELAY);
+      }
+
+      delay(2000);
+
+      display.clear();
+
+      printOutputBuffer();
+      lastEvent = millis();
+    }
+  }
 
   if (buttonState == LOW && !isHolding) {
     display.backlight();
