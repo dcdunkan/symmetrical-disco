@@ -1,9 +1,8 @@
 #include <LiquidCrystal_I2C.h>
 
 #define LCD_DISPLAY_I2C_ADDR 0x27
-#define CHARSET_LENGTH 36
+#define CHARSET_LENGTH 54
 #define UNIT_DELAY 200
-#define MAX_INPUT_BUFFER_LENGTH 5
 #define LCD_LINE_LENGTH 16
 
 const char INVALID_CHARACTER = '?';
@@ -13,11 +12,11 @@ const int BUTTON_PIN = 2;
 const int LED_PIN = LED_BUILTIN;
 LiquidCrystal_I2C display(LCD_DISPLAY_I2C_ADDR, LCD_LINE_LENGTH, 2);
 
-char LINE_BUFFER[LCD_LINE_LENGTH];
-char INPUT_BUFFER[MAX_INPUT_BUFFER_LENGTH + 1] = { 32, 32, 32, 32, 32, 0 };
+const int MAX_INPUT_BUFFER_LENGTH = 7;
+const char EMPTY[MAX_INPUT_BUFFER_LENGTH + 1] = { 32, 32, 32, 32, 32, 32, 32, 0 };
+char INPUT_BUFFER[MAX_INPUT_BUFFER_LENGTH + 1] = { 32, 32, 32, 32, 32, 32, 32, 0 };
 char OUTPUT_BUFFER[LCD_LINE_LENGTH];
 
-const char EMPTY[6] = { 32, 32, 32, 32, 32, 0 };
 uint8_t ENVELOPE_LEFT[8] = { 0x1f, 0x18, 0x14, 0x12, 0x11, 0x10, 0x10, 0x1f };
 uint8_t ENVELOPE_RIGHT[8] = { 0x1f, 0x03, 0x05, 0x09, 0x11, 0x01, 0x01, 0x1f };
 
@@ -31,45 +30,65 @@ bool partUpdated = true;
 bool letterUpdated = true;
 bool wordUpdated = true;
 
-const char* MORSE_CODES[36][2] = {
+const char* MORSE_CODES[CHARSET_LENGTH][2] = {
   // LETTERS
-  { ".-   ", "A" },
-  { "-... ", "B" },
-  { "-.-. ", "C" },
-  { "-..  ", "D" },
-  { ".    ", "E" },
-  { "..-. ", "F" },
-  { "--.  ", "G" },
-  { ".... ", "H" },
-  { "..   ", "I" },
-  { ".--- ", "J" },
-  { "-.-  ", "K" },
-  { ".-.. ", "L" },
-  { "--   ", "M" },
-  { "-.   ", "N" },
-  { "---  ", "O" },
-  { ".--. ", "P" },
-  { "--.- ", "Q" },
-  { ".-.  ", "R" },
-  { "...  ", "S" },
-  { "-    ", "T" },
-  { "..-  ", "U" },
-  { "...- ", "V" },
-  { ".--  ", "W" },
-  { "-..- ", "X" },
-  { "-.-- ", "Y" },
-  { "--.. ", "Z" },
-  // DIGITS
-  { ".----", "1" },
-  { "..---", "2" },
-  { "...--", "3" },
-  { "....-", "4" },
-  { ".....", "5" },
-  { "-....", "6" },
-  { "--...", "7" },
-  { "---..", "8" },
-  { "----.", "9" },
-  { "-----", "0" },
+  { ".-     ", "A" },
+  { "-...   ", "B" },
+  { "-.-.   ", "C" },
+  { "-..    ", "D" },
+  { ".      ", "E" },
+  { "..-.   ", "F" },
+  { "--.    ", "G" },
+  { "....   ", "H" },
+  { "..     ", "I" },
+  { ".---   ", "J" },
+  { "-.-    ", "K" },
+  { ".-..   ", "L" },
+  { "--     ", "M" },
+  { "-.     ", "N" },
+  { "---    ", "O" },
+  { ".--.   ", "P" },
+  { "--.-   ", "Q" },
+  { ".-.    ", "R" },
+  { "...    ", "S" },
+  { "-      ", "T" },
+  { "..-    ", "U" },
+  { "...-   ", "V" },
+  { ".--    ", "W" },
+  { "-..-   ", "X" },
+  { "-.--   ", "Y" },
+  { "--..   ", "Z" },
+  // NUMBERS
+  { ".----  ", "1" },
+  { "..---  ", "2" },
+  { "...--  ", "3" },
+  { "....-  ", "4" },
+  { ".....  ", "5" },
+  { "-....  ", "6" },
+  { "--...  ", "7" },
+  { "---..  ", "8" },
+  { "----.  ", "9" },
+  { "-----  ", "0" },
+  // PUNCTUATIONS
+  { ".-.-.- ", "." },
+  { "--..-- ", "," },
+  { "..--.. ", "?" },
+  { ".----. ", "'" },
+  { "-..-.  ", "/" },
+  { "-.--.  ", "(" },
+  { "-.--.- ", ")" },
+  { "---... ", ":" },
+  { "-...-  ", "=" },
+  { ".-.-.  ", "+" },
+  { "-....- ", "-" },
+  { ".-..-. ", "\"" },
+  { ".--.-. ", "@" },
+  // SPECIAL CHARACTERS (NON-STANDARD PUNCTUATIONS)
+  { "-.-.-- ", "!" },
+  { ".-...  ", "&" },
+  { "-.-.-. ", ";" },
+  { "..--.- ", "_" },
+  { "...-..-", "$" },
 };
 
 void setup() {
@@ -133,7 +152,7 @@ void showStartupAnimation() {
   display.clear();
 
   printStringAt(2, 0, "presented by");
-  printCharByChar("Group 8B", 50, 1, 4);
+  printCharByChar("Group 15", 50, 1, 4);
   delay(1000);
   printCharByChar("58  60  61  62", 50, 1, 1, true);
   delay(1000);
@@ -220,7 +239,7 @@ void loop() {
     if (millis() - lastEvent > 10000) {
       display.noBacklight();
     } else if (releaseTime < 3 * UNIT_DELAY && !partUpdated) {
-      position = position + 1 == 5 ? 0 : position + 1;
+      position = position + 1 == MAX_INPUT_BUFFER_LENGTH ? 0 : position + 1;
       if (position == 0) {
         append(OUTPUT_BUFFER, getCharacter(INPUT_BUFFER));
         printStringAt(0, 0, INPUT_BUFFER), printStringAt(0, 1, OUTPUT_BUFFER);
