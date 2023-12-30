@@ -1,35 +1,77 @@
+/**
+ * 
+ */
+/**
+ * @file morse.ino
+ * @brief Arduino sketch for a morse code translator machine.
+ * 
+ * This sketch listens and measures the hold time of the input button and
+ * translates the inputs to dots and dashes based on the hold time, and then
+ * translates the morse input to decoded ASCII character based on the
+ * International Morse Code standard. The sketch also contains a morse code
+ * encoder which listens to ASCII string inputs from Serial Monitor and then
+ * convert the input to morse code format. These two operations makes use of
+ * an LCD display, push button and a buzzer (piezo speaker).
+ * 
+ * @details This code is intended to demonstrate a morse code translator
+ * which is similar to the Telegraph system back in the days.
+ */
 #include <LiquidCrystal_I2C.h>
 
+/** The I2C address of the LCD display module in the I2C circuit */
 #define LCD_DISPLAY_I2C_ADDR 0x27
+/** Currently supported number of characters for the morse code translation */
 #define CHARSET_LENGTH 54
+/** The time delay in ms which is considered as one unit of morse input time */
 #define UNIT_DELAY 200
+/** The LCD module's line length */
 #define LCD_LINE_LENGTH 16
 
+/** A placeholder characters for invalid morse codes or non-printable characters */
 const char INVALID_CHARACTER = '?';
 
+/** Digital pin connected to the buzzer */
 const int BUZZER_PIN = 7;
+/** Digital pin connected to the button */
 const int BUTTON_PIN = 2;
+/** Digital pin connected to the 5mm LED */
 const int LED_PIN = LED_BUILTIN;
+/** The I2C LCD Display controller */
 LiquidCrystal_I2C display(LCD_DISPLAY_I2C_ADDR, LCD_LINE_LENGTH, 2);
 
+/** Maximum number of characters that can be entered to as morse inputs */
 const int MAX_INPUT_BUFFER_LENGTH = 7;
+/** Placeholder empty buffer to be printed for invalid characters */
 const char EMPTY[MAX_INPUT_BUFFER_LENGTH + 1] = { 32, 32, 32, 32, 32, 32, 32, 0 };
+/** Input buffer where the morse input is stored */
 char INPUT_BUFFER[MAX_INPUT_BUFFER_LENGTH + 1] = { 32, 32, 32, 32, 32, 32, 32, 0 };
+/** Output buffer where the morse output is stored */
 char OUTPUT_BUFFER[LCD_LINE_LENGTH];
 
+/** Custom character 1 (envelope-left) for fancy LCD outputs */
 uint8_t ENVELOPE_LEFT[8] = { 0x1f, 0x18, 0x14, 0x12, 0x11, 0x10, 0x10, 0x1f };
+/** Custom character 2 (envelope-right) for fancy LCD outputs */
 uint8_t ENVELOPE_RIGHT[8] = { 0x1f, 0x03, 0x05, 0x09, 0x11, 0x01, 0x01, 0x1f };
 
+/** Stores information about whether the button is being holded */
 bool isHolding = false;
+/** The moment in uptime when the holding started */
 unsigned long holdStart;
+/** The moment in uptime when the holding stopped */
 unsigned long releaseStart;
+/** Stores information about the time when the last event was taken place */
 unsigned long lastEvent;
+/** Variable to correctly manage the morse inputs */
 char position = 0;
 
+/** Stores information about morse input parts that got updated */
 bool partUpdated = true;
+/** Stores information about morse input letters that got updated */
 bool letterUpdated = true;
+/** Stores information about morse input words that got updated */
 bool wordUpdated = true;
 
+/** The international morse code standard */
 const char* MORSE_CODES[CHARSET_LENGTH][2] = {
   // LETTERS
   { ".-     ", "A" },
@@ -91,11 +133,13 @@ const char* MORSE_CODES[CHARSET_LENGTH][2] = {
   { "...-..-", "$" },
 };
 
+/**
+ * @brief Set up the modules and */
 void setup() {
   Serial.begin(9600);
 
   pinMode(BUZZER_PIN, OUTPUT);
-  pinMode(BUTTON_PIN, INPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
   pinMode(LED_PIN, OUTPUT);
 
   display.init();
@@ -212,12 +256,12 @@ void loop() {
   }
 
   // DECODER
-  int buttonState = digitalRead(BUTTON_PIN);
-  if (buttonState == LOW && !isHolding) {
+  int isButtonPressed = digitalRead(BUTTON_PIN);
+  if (isButtonPressed == LOW && !isHolding) {
     display.backlight();
     isHolding = true, holdStart = millis(), lastEvent = millis();
     digitalWrite(BUZZER_PIN, HIGH);
-  } else if (buttonState == LOW && isHolding) {
+  } else if (isButtonPressed == LOW && isHolding) {
     releaseStart = millis(), lastEvent = millis();
     unsigned long holdTime = releaseStart - holdStart;
     if (holdTime > 3000) {
@@ -231,10 +275,10 @@ void loop() {
       partUpdated = false, letterUpdated = false, wordUpdated = false;
       printStringAt(0, 0, INPUT_BUFFER);
     }
-  } else if (buttonState == HIGH && isHolding) {
+  } else if (isButtonPressed == HIGH && isHolding) {
     isHolding = false, releaseStart = millis(), lastEvent = millis();
     digitalWrite(BUZZER_PIN, LOW);
-  } else if (buttonState == HIGH && !isHolding) {
+  } else if (isButtonPressed == HIGH && !isHolding) {
     unsigned long releaseTime = millis() - releaseStart;
     if (millis() - lastEvent > 10000) {
       display.noBacklight();
